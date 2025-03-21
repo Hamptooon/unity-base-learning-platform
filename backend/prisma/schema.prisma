@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  password           String?   // Может быть null для OAuth
+  name               String
+  role               Role      @default(USER)
+  emailVerified      Boolean   @default(false) @map("email_verified")
+  emailVerificationToken String? @map("email_verification_token")
+  githubId           String?   @unique @map("github_id")
+  avatarUrl          String?   @map("avatar_url")
+  bio                String?   @map("bio")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Course {
+  id          String     @id @default(uuid())
+  title       String
+  description String
+  previewImageUrl String @map("preview_image_url")
+  prerequisites String  @map("prerequisites")  // Предварительные требования
+  learningObjectives CourseLearningObjective[]  // Цели обучения
+  // courseArticles CourseArticle[]  // Статьи курса
+  // coursePracticeTasks CoursePracticeTask[]  // Практические задания
+  duration     Int     // Продолжительность в часах
+  difficulty   Difficulty   // Уровень сложности (enum)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  isPublished Boolean  @default(false) @map("is_published")
+  parts         CoursePart[] // Части курса (теоретические и практические)
+  @@index([title])
+  @@map("courses")
+}
+
+model CourseLearningObjective {
+  id          String    @id @default(uuid())
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId    String    @map("course_id")
+  description String    @map("description")
+  sortOrder   Int       @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  @@map("course_learning_objectives")
+}
+model CoursePart {
+  id           String            @id @default(uuid())
+  course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId     String            @map("course_id")         
+  type         PartType        
+  sortOrder    Int               @map("sort_order")
+  article    CourseArticle?      @relation(fields: [courseArticleId], references: [id], onDelete: Cascade)
+  practice   CoursePracticeTask? @relation(fields: [coursePracticeTaskId], references: [id], onDelete: Cascade)
+  courseArticleId  String?             @unique @map("course_article_id")// ID статьи (если это статья)
+  coursePracticeTaskId String?             @unique @map("course_practice_task_id")// ID практического задания (если это практическое задание)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@map("course_parts")
+}
+
+model CourseArticle {
+  id          String   @id @default(uuid())
+  previewImageUrl String @map("preview_image_url")
+  title       String
+  description  String  
+  content     String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  coursePart CoursePart?
+
+  @@map("course_articles")
+}
+
+model CoursePracticeTask {
+  id          String   @id @default(uuid())
+  previewImageUrl String @map("preview_image_url")
+  title       String
+  description  String  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  coursePart CoursePart?
+
+  @@map("course_practice_tasks")
+}
+enum Role {
+  ADMIN
+  USER
+  PREMIUM
+}
+enum Difficulty {
+  NEWBIE
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+
+enum PartType {
+  THEORETICAL
+  PRACTICAL
+}
