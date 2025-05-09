@@ -1,8 +1,10 @@
+'use client'
 import './globals.css'
 import { Inter } from 'next/font/google'
 import Header from '@/widgets/header/header'
 import { UserProvider } from '@/features/auth/provider/user-provider'
 import ToastProvider from '@/shared/provider/toastProvider'
+
 const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
@@ -14,10 +16,7 @@ export default function RootLayout({
     <html lang="ru">
       <body className={inter.className}>
         <ToastProvider />
-        <UserProvider>
-          <Header />
-          <main className="">{children}</main>
-        </UserProvider>
+        <UserProvider>{children}</UserProvider>
       </body>
     </html>
   )

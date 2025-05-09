@@ -15,7 +15,8 @@ export class FilesService {
 		if (!file) {
 			throw new BadRequestException('Файл не был предоставлен')
 		}
-
+		const mainDirectory = 'uploads'
+		const folder = 'images'
 		// Проверка формата файла (если нужно)
 		const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
 		const fileExt = extname(file.originalname).toLowerCase()
@@ -34,7 +35,8 @@ export class FilesService {
 		}
 
 		try {
-			return this.saveFile(file, 'images')
+			const resultFileName = await this.saveFile(file, mainDirectory, folder)
+			return `/${mainDirectory}/${folder}/${resultFileName}`
 		} catch (error) {
 			throw new InternalServerErrorException(
 				'Ошибка при сохранении файла: ' + error.message
@@ -47,6 +49,9 @@ export class FilesService {
 		if (!file) {
 			throw new BadRequestException('Файл не был предоставлен')
 		}
+		const mainDirectory = 'private-uploads'
+		const folder = 'unity-packages'
+		console.log('fileNAme', file.originalname)
 		const allowedExtensions = ['.unitypackage']
 		const fileExt = extname(file.originalname).toLowerCase()
 		if (!allowedExtensions.includes(fileExt)) {
@@ -63,7 +68,8 @@ export class FilesService {
 		}
 
 		try {
-			return this.saveFile(file, 'unity-packages')
+			const resultFileName = await this.saveFile(file, mainDirectory, folder)
+			return `${resultFileName}`
 		} catch (error) {
 			throw new InternalServerErrorException(
 				'Ошибка при сохранении файла: ' + error.message
@@ -72,8 +78,12 @@ export class FilesService {
 	}
 
 	// Общий метод сохранения файла
-	private async saveFile(file: Express.Multer.File, folder: string) {
-		const uploadPath = path.join(process.cwd(), 'uploads', folder)
+	private async saveFile(
+		file: Express.Multer.File,
+		mainDirectory: string,
+		folder: string
+	) {
+		const uploadPath = path.join(process.cwd(), mainDirectory, folder)
 
 		// Создаем директорию, если не существует
 		if (!fs.existsSync(uploadPath)) {
@@ -88,6 +98,6 @@ export class FilesService {
 		fs.writeFileSync(filePath, file.buffer)
 
 		// Возвращаем URL для доступа к файлу
-		return `/uploads/${folder}/${fileName}`
+		return `${fileName}`
 	}
 }

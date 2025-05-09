@@ -15,5 +15,20 @@ export const fileService = {
       }
     )
     return response.data
+  },
+  async uploadUnityPackage(file: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('file', file)
+    console.log('file', file)
+    const response = await axiosWithAuth.post<string>(
+      '/files/upload-unity-package',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    )
+    return response.data
   }
 }

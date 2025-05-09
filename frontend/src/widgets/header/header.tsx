@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { toast } from 'react-toastify'
 import { useRouter } from 'next/navigation'
+import { SidebarTrigger } from '@/shared/ui/sidebar'
 // import { useTheme } from '@/shared/lib/theme'
 
 export default function Header() {
@@ -46,19 +47,48 @@ export default function Header() {
   }, [])
 
   return (
-    <header className="border-b ">
+    <header className="border-b">
       <nav className="  p-4 flex justify-between  items-center border">
-        <Link href="/" className="text-xl font-bold dark:text-white">
-          <Image
-            src="/icon-platform.svg"
-            alt="Логотип"
-            width={150}
-            height={150}
-            unoptimized // SVG не требует оптимизации
-          />
-        </Link>
+        <div className="flex gap-4 items-center">
+          {user?.role === 'ADMIN' && <SidebarTrigger />}
+          <Link href="/" className="text-xl font-bold dark:text-white">
+            <Image
+              src="/icon-platform.svg"
+              alt="Логотип"
+              width={150}
+              height={150}
+              unoptimized // SVG не требует оптимизации
+            />
+          </Link>
+        </div>
 
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mr-10">
+            <Link
+              href="/courses"
+              className="hidden md:flex items-center gap-2 text-neutral-300 hover:text-neutral-100 rounded-full p-2 transition-colors"
+            >
+              Курсы
+            </Link>
+            <Link
+              href="/articles"
+              className="hidden md:flex items-center gap-2 text-neutral-300 hover:text-neutral-100 rounded-full p-2 transition-colors"
+            >
+              Статьи
+            </Link>
+            <Link
+              href="/challenges"
+              className="hidden md:flex items-center gap-2 text-neutral-300 hover:text-neutral-100 rounded-full p-2 transition-colors"
+            >
+              Челленджи
+            </Link>
+            <Link
+              href="/about"
+              className="hidden md:flex items-center gap-2 text-neutral-300 hover:text-neutral-100 rounded-full p-2 transition-colors"
+            >
+              О нас
+            </Link>
+          </div>
           {isLoading ? (
             <Skeleton className="h-10 w-24" />
           ) : user ? (
@@ -87,7 +117,7 @@ export default function Header() {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg py-2 "
+                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg py-2 z-[1001]"
                   >
                     {user.role === 'ADMIN'
                       ? adminMenuLinks.map(link => (

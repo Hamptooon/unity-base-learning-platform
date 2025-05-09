@@ -1,3 +1,5 @@
+'use client'
+
 import { cn } from '@/shared/lib/utils'
 import { Input } from '@/shared/ui/input'
 import { Button } from '@/shared/ui/button'

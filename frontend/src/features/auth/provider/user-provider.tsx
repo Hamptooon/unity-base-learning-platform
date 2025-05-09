@@ -10,7 +10,11 @@ import {
 } from 'react'
 import { authService } from '@/features/auth/api/auth.service'
 import { IUser } from '@/entities/user/model/types'
-
+import { Sidebar } from '@/widgets/admin-sidebar/admin-sidebar'
+import { motion } from 'framer-motion'
+import { SidebarProvider, SidebarTrigger } from '@/shared/ui/sidebar'
+import { AppSidebar } from '@/widgets/admin-sidebar/app-sidebar'
+import Header from '@/widgets/header/header'
 interface UserContextType {
   user: IUser | null
   isLoading: boolean
@@ -46,7 +50,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider value={{ user, isLoading, setUser, refetchUser }}>
-      {children}
+      {user?.role === 'ADMIN' ? (
+        <SidebarProvider>
+          <AppSidebar />
+          <main className="flex-1 overflow-y-auto relative">
+            <Header /> {/* Добавляем Header сюда */}
+            {children}
+          </main>
+        </SidebarProvider>
+      ) : (
+        <div>
+          <Header /> {/* И сюда */}
+          <main className="">{children}</main>
+        </div>
+      )}
     </UserContext.Provider>
   )
 }

@@ -26,25 +26,110 @@ model User {
   bio                String?   @map("bio")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
+  userProgress      UserProgress[]
+  practiceSubmissions PracticeSubmission[]
+  reviewPractise     ReviewPractise[]
+   reviewed_submissions String[] @map("reviewed_submissions")
 
   @@map("users")
+}
+
+
+model UserProgress {
+  id          String    @id @default(uuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String    @map("user_id")
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId    String    @map("course_id")
+  currentCoursePartId String? @map("current_part_id") // ID текущей части курса
+  CoursePart CoursePart? @relation(fields: [currentCoursePartId], references: [id], onDelete: Cascade)
+  completedParts String[] @map("completed_parts") // Массив ID частей курса, которые пользователь прошел
+  progress    Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("user_progress")
+}
+model PracticeSubmission {
+  id          String    @id @default(uuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String    @map("user_id")
+  part        CoursePart @relation(fields: [partId], references: [id])
+  partId      String    @map("part_id")
+  githubRepo  String    @map("github_repo")
+  challenges  String?   @map("challenges")
+  learned     String?   @map("learned")
+  reviewsCount Int       @default(0) @map("reviews_count")
+  isReviewed  Boolean   @default(false) @map("is_reviewed")
+  canReviewed Boolean   @default(false) @map("can_reviewed")
+  score      Int?      @map("score")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  reviewPractise ReviewPractise[]
+  reviewedPractises String @map("review_practises") // Количество ревью, которые были сделаны на это практическое задание
+  reviewsTargets String[] @map("reviews_targets") // Массив ID ревью, которые были сделаны на это практическое задание
+  // Массив ID ревью, которые были сделаны на это практическое задание
+
+  @@map("practice_submissions")
+}
+
+model ReviewPractiseCriteria {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  reviewPractiseScoreCriteria ReviewPractiseScoreCriteria[]
+  coursePractise CoursePractice @relation(fields: [coursePractiseId], references: [id])
+  coursePractiseId String @map("course_practise_id")
+
+
+  @@map("review_criteria")
+}
+
+model ReviewPractise { 
+  id          String    @id @default(uuid())
+  practiceSubmission PracticeSubmission @relation(fields: [practiceSubmissionId], references: [id])
+  practiceSubmissionId String @map("practice_submission_id")
+  reviewer    User      @relation(fields: [reviewerId], references: [id])
+  reviewerId   String    @map("reviewer_id")
+  reviewPractiseScoreCriterias    ReviewPractiseScoreCriteria[] 
+  criteriaId   String    @map("criteria_id")
+  score       Int       @map("score")
+  comment     String?   @map("comment")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  practiseId String @map("practise_id")
+  
+
+  @@map("review_practice")
+}
+
+model ReviewPractiseScoreCriteria {
+  id          String    @id @default(uuid())
+  score       Int
+  reviewCriteria ReviewPractiseCriteria @relation(fields: [reviewCriteriaId], references: [id])
+  reviewCriteriaId String @map("review_criteria_id")
+  reviewPractise ReviewPractise @relation(fields: [reviewPractiseId], references: [id])
+  reviewPractiseId String @map("review_practice_id")
+
+  @@map("review_score_criteria")
 }
 
 model Course {
   id          String     @id @default(uuid())
   title       String
   description String
-  previewImageUrl String @map("preview_image_url")
-  prerequisites String  @map("prerequisites")  // Предварительные требования
-  learningObjectives CourseLearningObjective[]  // Цели обучения
-  // courseArticles CourseArticle[]  // Статьи курса
-  // coursePracticeTasks CoursePracticeTask[]  // Практические задания
-  duration     Int     // Продолжительность в часах
-  difficulty   Difficulty   // Уровень сложности (enum)
+  previewImageUrl String? @map("preview_image_url")
+  prerequisites String?  @map("prerequisites")  
+  learningObjectives CourseLearningObjective[]  
+  difficulty  Difficulty @default(NEWBIE)
+  duration     Int @default(1)  
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
   isPublished Boolean  @default(false) @map("is_published")
-  parts         CoursePart[] // Части курса (теоретические и практические)
+  parts         CoursePart[] 
+  userProgress  UserProgress[]
   @@index([title])
   @@map("courses")
 }
@@ -63,25 +148,27 @@ model CourseLearningObjective {
 model CoursePart {
   id           String            @id @default(uuid())
   course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  courseId     String            @map("course_id")         
+  courseId     String            @map("course_id")   
+  previewImageUrl String? @map("preview_image_url")
+  title       String
+  description  String        
   type         PartType        
   sortOrder    Int               @map("sort_order")
-  article    CourseArticle?      @relation(fields: [courseArticleId], references: [id], onDelete: Cascade)
-  practice   CoursePracticeTask? @relation(fields: [coursePracticeTaskId], references: [id], onDelete: Cascade)
+   article    CourseArticle?      @relation(fields: [courseArticleId], references: [id], onDelete: Cascade)
+  practice   CoursePractice? @relation(fields: [coursePracticeTaskId], references: [id], onDelete: Cascade)
   courseArticleId  String?             @unique @map("course_article_id")// ID статьи (если это статья)
   coursePracticeTaskId String?             @unique @map("course_practice_task_id")// ID практического задания (если это практическое задание)
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
+  practiceSubmission PracticeSubmission[]
+  userProgress UserProgress[]
 
   @@map("course_parts")
 }
 
 model CourseArticle {
   id          String   @id @default(uuid())
-  previewImageUrl String @map("preview_image_url")
-  title       String
-  description  String  
-  content     String
+  content     String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   coursePart CoursePart?
@@ -89,16 +176,16 @@ model CourseArticle {
   @@map("course_articles")
 }
 
-model CoursePracticeTask {
+model CoursePractice {
   id          String   @id @default(uuid())
-  previewImageUrl String @map("preview_image_url")
-  title       String
-  description  String  
+  content     String?
+  assetsFileUrl String? @map("assets_file_url")
+  reviewCriteria ReviewPractiseCriteria[]
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   coursePart CoursePart?
 
-  @@map("course_practice_tasks")
+  @@map("course_practices")
 }
 enum Role {
   ADMIN
