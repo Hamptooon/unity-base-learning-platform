@@ -14,6 +14,8 @@ import {
 } from 'react-icons/fi'
 import { MdArticle } from 'react-icons/md'
 import { BsLightning } from 'react-icons/bs'
+import { FaExclamationTriangle } from 'react-icons/fa'
+
 interface SidebarProps {
   isOpen: boolean
   isMobile: boolean
@@ -28,6 +30,7 @@ export const Sidebar = ({ isOpen, isMobile, onToggle }: SidebarProps) => {
     { href: '/admin', label: 'Главная', icon: FiHome },
     { href: '/admin/users', label: 'Пользователи', icon: FiUsers },
     { href: '/admin/settings', label: 'Настройки', icon: FiSettings },
+    { href: '/admin/complaints', label: 'Жалобы', icon: FaExclamationTriangle },
     { href: '/admin/courses', label: 'Курсы', icon: FiBook },
     { href: 'admin/articles', label: 'Статьи', icon: MdArticle },
     { href: 'admin/challenges', label: 'Челленджи', icon: BsLightning }

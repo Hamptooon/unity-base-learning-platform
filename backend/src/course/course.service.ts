@@ -50,13 +50,81 @@ export class CourseService {
 
 		return course.parts
 	}
-	async getCourses() {
-		const courses = await this.prisma.course.findMany({
-			orderBy: {
-				createdAt: 'desc'
+	// async getCourses() {
+	// 	const courses = await this.prisma.course.findMany({
+	// 		orderBy: {
+	// 			createdAt: 'desc'
+	// 		}
+	// 	})
+	// 	return courses
+	// }
+
+	// course.service.ts (Nest.js)
+	async getCourses(filters: {
+		page?: number
+		limit?: number
+		status?: 'published' | 'draft'
+		difficulty?: string
+		durationMin?: number
+		durationMax?: number
+		search?: string
+		tags?: string
+		sortOrder?: 'asc' | 'desc'
+	}) {
+		if (!filters.page) filters.page = 1
+		if (!filters.limit) filters.limit = 10
+
+		const where: any = {}
+
+		const durationMin = Number(filters.durationMin) || undefined
+		const durationMax = Number(filters.durationMax) || undefined
+
+		if (filters.status) {
+			where.isPublished = filters.status === 'published'
+		}
+
+		if (filters.difficulty) {
+			where.difficulty = filters.difficulty
+		}
+
+		if (durationMin !== undefined || durationMax !== undefined) {
+			where.duration = {
+				...(durationMin !== undefined && { gte: durationMin }),
+				...(durationMax !== undefined && { lte: durationMax })
 			}
-		})
-		return courses
+		}
+
+		if (filters.search) {
+			where.title = { contains: filters.search, mode: 'insensitive' }
+		}
+
+		if (filters.tags) {
+			const tagArray = filters.tags.split(',') // "tag1,tag2"
+			where.tags = {
+				some: {
+					name: {
+						in: tagArray
+					}
+				}
+			}
+		}
+
+		const [courses, total] = await Promise.all([
+			this.prisma.course.findMany({
+				where,
+				skip: (filters.page - 1) * filters.limit,
+				take: Number(filters.limit),
+				orderBy: {
+					createdAt: filters.sortOrder === 'asc' ? 'asc' : 'desc'
+				},
+				include: {
+					tags: true
+				}
+			}),
+			this.prisma.course.count({ where })
+		])
+
+		return { data: courses, total }
 	}
 
 	async getCourseById(id: string) {
@@ -76,7 +144,8 @@ export class CourseService {
 					orderBy: {
 						sortOrder: 'asc'
 					}
-				}
+				},
+				tags: true
 			}
 		})
 
@@ -87,15 +156,43 @@ export class CourseService {
 		return course
 	}
 	async updateCourse(id: string, courseDto: UpdateCourseDto) {
-		const { learningObjectives, ...courseData } = courseDto
+		const { learningObjectives, tags = [], ...courseData } = courseDto
+
 		const course = await this.prisma.course.findUnique({
-			where: { id }
+			where: { id },
+			include: { tags: true }
 		})
+
 		if (!course) {
 			throw new NotFoundException('Курс не найден')
 		}
-		console.log('practice', courseData.parts[0].practice)
+
+		// Получаем текущие и новые теги
+		const currentTagNames = course.tags.map(tag => tag.name)
+		const tagNames = tags.map(tag => tag.name)
+
+		const tagsToAdd = tagNames.filter(name => !currentTagNames.includes(name))
+		const tagsToRemove = currentTagNames.filter(
+			name => !tagNames.includes(name)
+		)
+
+		const existingTags = await this.prisma.tag.findMany({
+			where: { name: { in: tagsToAdd } }
+		})
+
+		const existingTagNames = existingTags.map(tag => tag.name)
+		const newTagNames = tagsToAdd.filter(
+			name => !existingTagNames.includes(name)
+		)
+
+		const newTags = await Promise.all(
+			newTagNames.map(name => this.prisma.tag.create({ data: { name } }))
+		)
+
+		const allTagsToConnect = [...existingTags, ...newTags]
+
 		return this.prisma.$transaction(async prisma => {
+			// Обновляем курс
 			const updatedCourse = await prisma.course.update({
 				where: { id },
 				data: {
@@ -116,14 +213,27 @@ export class CourseService {
 								practice: part.practice ? { create: part.practice } : undefined
 							}
 						}))
-					}
+					},
+					// Удаляем старые теги
+					...(tagsToRemove.length > 0 && {
+						tags: {
+							disconnect: tagsToRemove.map(name => ({ name }))
+						}
+					}),
+					// Подключаем новые теги
+					...(allTagsToConnect.length > 0 && {
+						tags: {
+							connect: allTagsToConnect.map(tag => ({ id: tag.id }))
+						}
+					})
 				}
 			})
-			// Удаляем старые цели обучения
+
+			// Обновляем цели обучения
 			await prisma.courseLearningObjective.deleteMany({
 				where: { courseId: id }
 			})
-			// Создаем новые цели обучения
+
 			await prisma.courseLearningObjective.createMany({
 				data: learningObjectives.map((obj, index) => ({
 					description: obj.description,
@@ -131,16 +241,17 @@ export class CourseService {
 					courseId: id
 				}))
 			})
+
 			return updatedCourse
 		})
 	}
+
 	// }
 	async createCoursePart(
 		courseId: string,
 		createCoursePartDto: CreateCoursePartDto
 	) {
 		const { type, sortOrder } = createCoursePartDto
-		console.log('createCoursePartDto', createCoursePartDto)
 		return this.prisma.$transaction(async prisma => {
 			// Проверяем существование курса
 			const course = await prisma.course.findUnique({
@@ -234,28 +345,28 @@ export class CourseService {
 	async deleteCourse(id: string) {
 		return this.prisma.$transaction([
 			// Удаляем ReviewPractiseScoreCriteria
-			this.prisma.reviewPractiseScoreCriteria.deleteMany({
-				where: {
-					reviewPractise: {
-						practiceSubmission: {
-							part: {
-								courseId: id
-							}
-						}
-					}
-				}
-			}),
+			// this.prisma.reviewPractiseScoreCriteria.deleteMany({
+			// 	where: {
+			// 		reviewPractise: {
+			// 			practiceSubmission: {
+			// 				part: {
+			// 					courseId: id
+			// 				}
+			// 			}
+			// 		}
+			// 	}
+			// }),
 
 			// Удаляем ReviewPractise
-			this.prisma.reviewPractise.deleteMany({
-				where: {
-					practiceSubmission: {
-						part: {
-							courseId: id
-						}
-					}
-				}
-			}),
+			// this.prisma.reviewPractise.deleteMany({
+			// 	where: {
+			// 		practiceSubmission: {
+			// 			part: {
+			// 				courseId: id
+			// 			}
+			// 		}
+			// 	}
+			// }),
 
 			// Удаляем ReviewPractiseCriteria
 			this.prisma.reviewPractiseCriteria.deleteMany({
@@ -420,5 +531,18 @@ export class CourseService {
 		if (coursePart.practice?.id !== practiseId) {
 			throw new ForbiddenException('Нет доступа к этой практике')
 		}
+	}
+
+	async hideCourse(courseId: string) {
+		return this.prisma.course.update({
+			where: { id: courseId },
+			data: { isPublished: false }
+		})
+	}
+	async publishCourse(courseId: string) {
+		return this.prisma.course.update({
+			where: { id: courseId },
+			data: { isPublished: true }
+		})
 	}
 }

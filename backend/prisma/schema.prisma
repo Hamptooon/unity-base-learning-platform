@@ -29,11 +29,17 @@ model User {
   userProgress      UserProgress[]
   practiceSubmissions PracticeSubmission[]
   reviewPractise     ReviewPractise[]
-   reviewed_submissions String[] @map("reviewed_submissions")
+  reviewedComplaints ReviewComplaint[] @relation("reviewed_complaints")
+  reviewerComplaints ReviewComplaint[] @relation("reviewer_complaints")
+  complaintsCount Int @default(0) @map("complaints_count")
+  standalonePracticeSubmissions StandalonePracticeSubmission[] // Добавлено
+  reviewStandalonePractise ReviewStandalonePractise[] // Добавлено
+  reviewedStandaloneComplaints ReviewStandaloneComplaint[] @relation("reviewed_standalone_complaints") // Добавлено
+  reviewerStandaloneComplaints ReviewStandaloneComplaint[] @relation("reviewer_standalone_complaints") // Добавлено
+  reviewsOverCount Int @default(0) @map("reviews_over_count") // Количество ревью, которые были сделаны на это практическое задание
 
   @@map("users")
 }
-
 
 model UserProgress {
   id          String    @id @default(uuid())
@@ -55,19 +61,22 @@ model PracticeSubmission {
   user        User      @relation(fields: [userId], references: [id])
   userId      String    @map("user_id")
   part        CoursePart @relation(fields: [partId], references: [id])
-  partId      String    @map("part_id")
+  partId      String   @map("part_id")
   githubRepo  String    @map("github_repo")
+  githubPagesUrl String @map("github_pages_url")
   challenges  String?   @map("challenges")
   learned     String?   @map("learned")
-  reviewsCount Int       @default(0) @map("reviews_count")
+  // reviewsCount Int       @default(0) @map("reviews_count")
   isReviewed  Boolean   @default(false) @map("is_reviewed")
   canReviewed Boolean   @default(false) @map("can_reviewed")
   score      Int?      @map("score")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-  reviewPractise ReviewPractise[]
-  reviewedPractises String @map("review_practises") // Количество ревью, которые были сделаны на это практическое задание
-  reviewsTargets String[] @map("reviews_targets") // Массив ID ревью, которые были сделаны на это практическое задание
+  reviewedSubmissions ReviewPractise[] @relation("reviewed_submissions")
+  reviewerSubmissions ReviewPractise[] @relation("reviewer_submissions")
+
+  // reviewedPractises String @map("review_practises") // Количество ревью, которые были сделаны на это практическое задание
+  // reviewsTargets String[] @map("reviews_targets") // Массив ID ревью, которые были сделаны на это практическое задание
   // Массив ID ревью, которые были сделаны на это практическое задание
 
   @@map("practice_submissions")
@@ -88,23 +97,44 @@ model ReviewPractiseCriteria {
 }
 
 model ReviewPractise { 
+
   id          String    @id @default(uuid())
-  practiceSubmission PracticeSubmission @relation(fields: [practiceSubmissionId], references: [id])
+  practiceSubmission PracticeSubmission @relation(fields: [practiceSubmissionId], references: [id], name: "reviewed_submissions", onDelete: Cascade)
   practiceSubmissionId String @map("practice_submission_id")
+  reviewerSubmission PracticeSubmission? @relation(fields: [reviewerSubmissionId], references: [id], name: "reviewer_submissions", onDelete: Cascade)
+  reviewerSubmissionId String? @map("reviewer_submission_id")
   reviewer    User      @relation(fields: [reviewerId], references: [id])
   reviewerId   String    @map("reviewer_id")
   reviewPractiseScoreCriterias    ReviewPractiseScoreCriteria[] 
-  criteriaId   String    @map("criteria_id")
   score       Int       @map("score")
   comment     String?   @map("comment")
+  isCompleted Boolean   @default(false) @map("is_completed")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-  practiseId String @map("practise_id")
+  reviewComplaint ReviewComplaint?
+
   
 
   @@map("review_practice")
 }
 
+model ReviewComplaint{
+  id          String    @id @default(uuid())
+  reviewPractise ReviewPractise @relation(fields: [reviewPractiseId], references: [id], onDelete: Cascade)
+  reviewPractiseId String @unique @map("review_practice_id")
+  reviewedUser        User      @relation(fields: [reviewedUserId], references: [id], name: "reviewed_complaints", onDelete: Cascade)
+  reviewedUserId      String    @map("reviewed_user_id")
+  reviewerUserId String @map("reviewer_user_id")
+  reviewerUser        User      @relation(fields: [reviewerUserId], references: [id], name: "reviewer_complaints", onDelete: Cascade)
+  complaintType ComplaintReviewType @map("complaint_type")
+  isApproved Boolean @default(false) @map("is_approved")
+  comment     String?   @map("comment")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  toxicityScore Int? @map("toxicity_score")
+
+  @@map("review_complaints")
+}
 model ReviewPractiseScoreCriteria {
   id          String    @id @default(uuid())
   score       Int
@@ -130,6 +160,9 @@ model Course {
   isPublished Boolean  @default(false) @map("is_published")
   parts         CoursePart[] 
   userProgress  UserProgress[]
+    tags      Tag[]     @relation("CourseTags")
+
+  
   @@index([title])
   @@map("courses")
 }
@@ -154,7 +187,7 @@ model CoursePart {
   description  String        
   type         PartType        
   sortOrder    Int               @map("sort_order")
-   article    CourseArticle?      @relation(fields: [courseArticleId], references: [id], onDelete: Cascade)
+  article    CourseArticle?      @relation(fields: [courseArticleId], references: [id], onDelete: Cascade)
   practice   CoursePractice? @relation(fields: [coursePracticeTaskId], references: [id], onDelete: Cascade)
   courseArticleId  String?             @unique @map("course_article_id")// ID статьи (если это статья)
   coursePracticeTaskId String?             @unique @map("course_practice_task_id")// ID практического задания (если это практическое задание)
@@ -175,6 +208,27 @@ model CourseArticle {
 
   @@map("course_articles")
 }
+model Article {
+  id          String   @id @default(uuid())
+  content     String?
+  title       String
+  description  String  
+  previewImageUrl String? @map("preview_image_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  isPublished Boolean  @default(false) @map("is_published")
+  tags      Tag[]     @relation("ArticleTags")
+  @@map("articles")
+}
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  articles  Article[] @relation("ArticleTags")
+  courses Course[] @relation("CourseTags")
+    standalonePractises StandalonePractice[] @relation("StandalonePracticeTags")
+  @@map("tags")
+}
+
 
 model CoursePractice {
   id          String   @id @default(uuid())
@@ -187,10 +241,115 @@ model CoursePractice {
 
   @@map("course_practices")
 }
+
+
+model StandalonePractice {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  content     String?
+  previewImageUrl String? @map("preview_image_url")
+  assetsFileUrl String? @map("assets_file_url")
+  reviewCriteria StandalonePractiseCriteria[]
+  difficulty  Difficulty @default(NEWBIE)
+  duration    Int       @default(1)
+  isPublished Boolean   @default(false) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  tags        Tag[]     @relation("StandalonePracticeTags")
+  submissions StandalonePracticeSubmission[]
+
+  @@map("standalone_practices")
+}
+
+// Новая модель для отправки решений по независимым заданиям
+model StandalonePracticeSubmission {
+  id          String    @id @default(uuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String    @map("user_id")
+  practice    StandalonePractice @relation(fields: [practiceId], references: [id])
+  practiceId  String    @map("practice_id")
+  githubRepo  String    @map("github_repo")
+  githubPagesUrl String @map("github_pages_url")
+  challenges  String?   @map("challenges")
+  learned     String?   @map("learned")
+  isReviewed  Boolean   @default(false) @map("is_reviewed")
+  canReviewed Boolean   @default(false) @map("can_reviewed")
+  score       Int?      @map("score")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  reviewedSubmissions ReviewStandalonePractise[] @relation("reviewed_standalone_submissions")
+  reviewerSubmissions ReviewStandalonePractise[] @relation("reviewer_standalone_submissions")
+
+  @@map("standalone_practice_submissions")
+}
+
+// Критерии для независимых заданий
+model StandalonePractiseCriteria {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  reviewPractiseScoreCriteria StandalonePractiseScoreCriteria[]
+  practice    StandalonePractice @relation(fields: [practiceId], references: [id])
+  practiceId  String    @map("practice_id")
+
+  @@map("standalone_review_criteria")
+}
+
+// Ревью для независимых заданий
+model ReviewStandalonePractise { 
+  id          String    @id @default(uuid())
+  practiceSubmission StandalonePracticeSubmission @relation(fields: [practiceSubmissionId], references: [id], name: "reviewed_standalone_submissions", onDelete: Cascade)
+  practiceSubmissionId String @map("practice_submission_id")
+  reviewerSubmission StandalonePracticeSubmission? @relation(fields: [reviewerSubmissionId], references: [id], name: "reviewer_standalone_submissions", onDelete: Cascade)
+  reviewerSubmissionId String? @map("reviewer_submission_id")
+  reviewer    User      @relation(fields: [reviewerId], references: [id])
+  reviewerId  String    @map("reviewer_id")
+  reviewPractiseScoreCriterias StandalonePractiseScoreCriteria[] 
+  score       Int       @map("score")
+  comment     String?   @map("comment")
+  isCompleted Boolean   @default(false) @map("is_completed")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  reviewComplaint ReviewStandaloneComplaint?
+
+  @@map("review_standalone_practice")
+}
+
+// Оценки по критериям для независимых заданий
+model StandalonePractiseScoreCriteria {
+  id          String    @id @default(uuid())
+  score       Int
+  reviewCriteria StandalonePractiseCriteria @relation(fields: [reviewCriteriaId], references: [id])
+  reviewCriteriaId String @map("review_criteria_id")
+  reviewPractise ReviewStandalonePractise @relation(fields: [reviewPractiseId], references: [id])
+  reviewPractiseId String @map("review_practice_id")
+
+  @@map("standalone_review_score_criteria")
+}
+
+// Жалобы на ревью независимых заданий
+model ReviewStandaloneComplaint {
+  id          String    @id @default(uuid())
+  reviewPractise ReviewStandalonePractise @relation(fields: [reviewPractiseId], references: [id], onDelete: Cascade)
+  reviewPractiseId String @unique @map("review_practice_id")
+  reviewedUser User @relation(fields: [reviewedUserId], references: [id], name: "reviewed_standalone_complaints", onDelete: Cascade)
+  reviewedUserId String @map("reviewed_user_id")
+  reviewerUserId String @map("reviewer_user_id")
+  reviewerUser User @relation(fields: [reviewerUserId], references: [id], name: "reviewer_standalone_complaints", onDelete: Cascade)
+  complaintType ComplaintReviewType @map("complaint_type")
+  isApproved Boolean @default(false) @map("is_approved")
+  comment     String?   @map("comment")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("review_standalone_complaints")
+}
 enum Role {
   ADMIN
   USER
-  PREMIUM
 }
 enum Difficulty {
   NEWBIE
@@ -203,4 +362,9 @@ enum Difficulty {
 enum PartType {
   THEORETICAL
   PRACTICAL
+}
+
+enum ComplaintReviewType{
+  ABUSE
+  INCORRECTRATE
 }

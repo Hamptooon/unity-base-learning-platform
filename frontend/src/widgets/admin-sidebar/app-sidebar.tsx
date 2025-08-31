@@ -18,6 +18,7 @@ import {
   SidebarMenuItem
 } from '@/shared/ui/sidebar'
 import { MdArticle } from 'react-icons/md'
+import { FaExclamationTriangle } from 'react-icons/fa'
 
 import { BsLightning } from 'react-icons/bs'
 const items = [
@@ -42,13 +43,18 @@ const items = [
     icon: FiSettings
   },
   {
+    title: 'Жалобы',
+    path: '/admin/complaints',
+    icon: FaExclamationTriangle
+  },
+  {
     title: 'Статьи',
     path: '/admin/articles',
     icon: MdArticle
   },
   {
     title: 'Челленджи',
-    path: '/admin/challenges',
+    path: '/admin/practises',
     icon: BsLightning
   }
 ]

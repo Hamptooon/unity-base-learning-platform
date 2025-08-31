@@ -19,19 +19,11 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
 	}
 
 	async validate(accessToken: string, refreshToken: string, profile: any) {
-		console.log('validate GithubStrategy')
 		if (!profile.emails?.[0]?.value) {
 			throw new UnauthorizedException('GitHub account without email')
 		}
-		console.log('refreshToken____')
-		console.log(refreshToken)
-		console.log('accessToken____')
-		console.log(accessToken)
-		console.log('Profile____')
-		console.log(profile)
+
 		const { login, bio, avatar_url } = profile._json
-		console.log('bio____')
-		console.log(bio)
 		const user = await this.authService.validateGithubUser({
 			githubId: profile.id,
 			email: profile.emails[0].value,
@@ -39,10 +31,6 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
 			bio: bio,
 			avatarUrl: avatar_url
 		})
-
-		// if (!user.emailVerified) {
-		// 	throw new UnauthorizedException('Email not verified')
-		// }
 
 		return user
 	}

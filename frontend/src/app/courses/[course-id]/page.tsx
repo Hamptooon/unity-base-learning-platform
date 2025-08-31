@@ -43,6 +43,8 @@ export default function CoursePage() {
             courseId as string
           )
           console.log('userCourseProgress', userCourseProgress)
+          console.log('data', data)
+          console.log('course', course)
           setUserCourseProgress(userCourseProgress)
           setCourse(data)
           setSortedParts(
@@ -57,7 +59,7 @@ export default function CoursePage() {
     }
 
     fetchCourse()
-  }, [courseId])
+  }, [courseId, user])
 
   const getDifficultyColor = (difficulty: Difficulty) => {
     switch (difficulty) {
@@ -175,7 +177,13 @@ export default function CoursePage() {
             className="w-full h-64 object-cover rounded-lg mb-6"
           />
         )}
-
+        <div className="flex gap-3 mb-5">
+          {course.tags?.map(tag => (
+            <Badge key={tag.id} variant="secondary">
+              {tag.name}
+            </Badge>
+          ))}
+        </div>
         <p className="text-lg text-muted-foreground">{course.description}</p>
 
         <div className="flex mb-4 mt-10  gap-10 ">

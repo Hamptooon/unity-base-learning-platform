@@ -15,6 +15,8 @@ import {
 } from 'class-validator'
 import { AddObjectiveDto } from './add-objective.dto'
 import { CoursePartDto } from './course-part.dto'
+
+import { TagDto } from '@/tag/dto/tag.dto'
 export class UpdateCourseDto {
 	@IsString()
 	@MinLength(2, { message: 'Название должно содержать минимум 2 символа' })
@@ -54,4 +56,10 @@ export class UpdateCourseDto {
 	@ValidateNested({ each: true })
 	@Type(() => CoursePartDto)
 	parts: CoursePartDto[]
+
+	@IsOptional()
+	@IsArray()
+	@ValidateNested({ each: true })
+	@Type(() => TagDto)
+	tags?: TagDto[]
 }

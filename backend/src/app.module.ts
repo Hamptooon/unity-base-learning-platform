@@ -9,6 +9,12 @@ import { FilesModule } from './files/files.module'
 import { UserProgressModule } from './user-progress/user-progress.module'
 import { PracticeSubmissionModule } from './practise-submission/practise-submission.module'
 import { ReviewModule } from './review/review.module'
+import { ArticleModule } from './article/article.module'
+import { PractiseSolutionModule } from './practise-solution/practise-solution.module'
+import { ComplaintsModule } from './complaints/complaints.module'
+import { TagModule } from './tag/tag.module'
+import { PractiseModule } from './standalone-practise/standalone-practise.module'
+import { AiModule } from './ai/ai.module'
 
 @Module({
 	imports: [
@@ -23,7 +29,13 @@ import { ReviewModule } from './review/review.module'
 		FilesModule,
 		UserProgressModule,
 		PracticeSubmissionModule,
-		ReviewModule
+		ReviewModule,
+		ArticleModule,
+		PractiseSolutionModule,
+		ComplaintsModule,
+		TagModule,
+		PractiseModule,
+		AiModule
 	]
 })
 export class AppModule {}

@@ -58,11 +58,31 @@ export const courseService = {
     return response.data
   },
 
-  async getCourses(): Promise<Course[]> {
-    const response = await axiosWithAuth.get<Course[]>('/courses')
+  async getCourses(
+    params: {
+      page: number
+      limit: number
+      status?: 'published' | 'draft'
+      difficulty?: string
+      durationMin?: number
+      durationMax?: number
+      search?: string
+      tags?: string // <--- добавили
+      sortOrder?: 'asc' | 'desc'
+    },
+    signal?: AbortSignal
+  ): Promise<{ data: Course[]; total: number }> {
+    console.log('params', params)
+    const response = await axiosWithAuth.get('/courses', {
+      params: {
+        ...params,
+        page: params.page.toString(),
+        limit: params.limit.toString()
+      },
+      signal
+    })
     return response.data
   },
-
   async getCoursePart(coursePartId: string): Promise<CoursePart> {
     const response = await axiosWithAuth.get<CoursePart>(
       `/courses/parts/${coursePartId}`
@@ -158,6 +178,18 @@ export const courseService = {
   ) {
     const response = await axiosWithAuth.delete(
       `/courses/${courseId}/parts/${partId}/${practiseId}/reviews-criterias/${criteriaId}`
+    )
+    return response.data
+  },
+  async hideCourse(courseId: string) {
+    const response = await axiosWithAuth.get<Course>(
+      `/courses/${courseId}/hide`
+    )
+    return response.data
+  },
+  async publishCourse(courseId: string) {
+    const response = await axiosWithAuth.get<Course>(
+      `/courses/${courseId}/publish`
     )
     return response.data
   }

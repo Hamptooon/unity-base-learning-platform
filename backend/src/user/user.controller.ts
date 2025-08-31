@@ -34,6 +34,11 @@ export class UsersController {
 	) {
 		return this.usersService.updateUserInfo(user.id, data)
 	}
+
+	@Get(':id')
+	getUserById(@Param('id') id: string) {
+		return this.usersService.findById(id)
+	}
 	// Обновление роли (только для админов)
 	// @Patch(':id/role')
 	// @Roles(Role.ADMIN)

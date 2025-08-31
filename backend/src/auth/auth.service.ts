@@ -66,7 +66,7 @@ export class AuthService {
 
 		return {
 			accessToken: this.jwtService.sign(payload, {
-				expiresIn: '1h'
+				expiresIn: '20h'
 			}),
 			refreshToken: this.jwtService.sign(payload, {
 				expiresIn: '7d'

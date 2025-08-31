@@ -6,6 +6,10 @@ export class CreatePractiseSubmissionDto {
 	githubRepo: string
 
 	@IsString()
+	@IsUrl()
+	githubPagesUrl: string
+
+	@IsString()
 	@IsOptional()
 	challenges?: string
 

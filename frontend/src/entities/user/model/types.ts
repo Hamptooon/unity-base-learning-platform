@@ -8,17 +8,20 @@ export interface IUser {
   emailVerified: boolean
   emailVerificationToken: string
   avatar: string
+  reviewsOverCount: number
 }
 
 export interface PracticeSubmission {
   id: string
   githubRepo: string
+  githubPagesUrl: string
   challenges?: string
   learned?: string
   userId: string
   partId: string
+  canReviewed: boolean
+  isReviewed: boolean
   createdAt: string
   updatedAt: string
   user: IUser
-  reviewsTargets: string[]
 }

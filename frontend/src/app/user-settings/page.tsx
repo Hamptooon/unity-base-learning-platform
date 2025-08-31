@@ -9,6 +9,7 @@ import { Textarea } from '@/shared/ui/textarea'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Badge } from '@/shared/ui/badge'
 import {
   Form,
   FormControl,
@@ -73,112 +74,116 @@ export default function Home() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Настройки</h1>
-      {isLoading ? (
-        <p>Загрузка...</p>
-      ) : user ? (
-        <div className="space-y-4">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {/* Поле имени */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Имя</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Введите ваше имя" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="w-full max-w-2xl space-y-6">
+        <h1 className="text-3xl font-bold text-center">Настройки</h1>
 
-              {/* Поле email */}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        {...field}
-                        placeholder="Введите ваш email"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Поле описания */}
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Описание</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        rows={3}
-                        className="min-h-[100px]"
-                        placeholder="Расскажите о себе"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Блок подтверждения email */}
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Email подтвержден:</p>
-                    <p>{user.emailVerified ? 'Да' : 'Нет'}</p>
-                  </div>
-                  {!user.emailVerified && (
-                    <Button
-                      onClick={handleResendEmail}
-                      variant="outline"
-                      type="button"
-                    >
-                      Отправить письмо повторно
-                    </Button>
+        {isLoading ? (
+          <p className="text-center">Загрузка...</p>
+        ) : user ? (
+          <div className="space-y-6">
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-5"
+              >
+                {/* Имя */}
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Имя</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Введите ваше имя" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
+                />
+
+                {/* Email */}
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          {...field}
+                          placeholder="Введите ваш email"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Описание */}
+                <FormField
+                  control={form.control}
+                  name="bio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Описание</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          rows={3}
+                          className="min-h-[100px]"
+                          placeholder="Расскажите о себе"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Email подтверждение */}
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="font-medium">Email подтвержден:</p>
+                      {user.emailVerified ? (
+                        <Badge variant="default">Подтвержден</Badge>
+                      ) : (
+                        <Badge variant="destructive">Не подтвержден</Badge>
+                      )}
+                    </div>
+                    {!user.emailVerified && (
+                      <Button
+                        onClick={handleResendEmail}
+                        variant="outline"
+                        type="button"
+                      >
+                        Отправить письмо повторно
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Кнопки управления */}
-              <div className="flex gap-2 justify-end">
-                <Button type="submit">Сохранить изменения</Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => form.reset()}
-                >
-                  Сбросить изменения
-                </Button>
-              </div>
-            </form>
-          </Form>
-
-          {/* Статическая информация */}
-          <div className="space-y-2">
-            <div>
-              <p className="font-medium">Роль:</p>
-              <p>{user.role}</p>
-            </div>
+                {/* Кнопки */}
+                <div className="flex gap-3 justify-end pt-4">
+                  <Button type="submit">Сохранить изменения</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => form.reset()}
+                  >
+                    Сбросить изменения
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </div>
-        </div>
-      ) : (
-        <p>Пожалуйста, войдите для просмотра контента</p>
-      )}
+        ) : (
+          <p className="text-center text-muted-foreground">
+            Пожалуйста, войдите для просмотра контента
+          </p>
+        )}
+      </div>
     </div>
   )
 }

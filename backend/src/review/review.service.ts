@@ -4,10 +4,19 @@ import {
 	ConflictException
 } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import {
+	ReviewSubmissionDto,
+	ReviewSubmissionIndependentDto
+} from './dto/review-submission.dto'
+
+import { EmailService } from '../email/email.service'
 
 @Injectable()
 export class ReviewService {
-	constructor(private prisma: PrismaService) {}
+	constructor(
+		private prisma: PrismaService,
+		private emailService: EmailService
+	) {}
 
 	async getUnreviewedPractise(userId: string) {
 		const unreviewedPractise = await this.prisma.practiceSubmission.findMany({
@@ -60,14 +69,14 @@ export class ReviewService {
 			resultTargetReviews = [targetReview1.id, targetReview2.id]
 		}
 
-		await this.prisma.practiceSubmission.update({
-			where: {
-				id: practiseSubmitionId
-			},
-			data: {
-				reviewsTargets: resultTargetReviews
-			}
-		})
+		// await this.prisma.practiceSubmission.update({
+		// 	where: {
+		// 		id: practiseSubmitionId
+		// 	},
+		// 	data: {
+		// 		reviewsTargets: resultTargetReviews
+		// 	}
+		// })
 		return resultTargetReviews
 	}
 
@@ -124,5 +133,310 @@ export class ReviewService {
 			throw new NotFoundException('No review criterias found')
 		}
 		return criterias
+	}
+
+	async getSubmissionsToReviewByPractiseSubmissionId(
+		reviewerSubmissionId: string
+	) {
+		const reviewsByReviewerSubmissionId =
+			await this.prisma.reviewPractise.findMany({
+				where: {
+					reviewerSubmissionId: reviewerSubmissionId,
+					isCompleted: false
+				}
+			})
+
+		if (!reviewsByReviewerSubmissionId) {
+			throw new NotFoundException('No reviews found')
+		}
+		const submissionsToReview = this.prisma.practiceSubmission.findMany({
+			where: {
+				id: {
+					in: reviewsByReviewerSubmissionId.map(
+						review => review.practiceSubmissionId
+					)
+				}
+			}
+		})
+		return submissionsToReview
+	}
+
+	async reviewSubmission(
+		submissionId: string,
+		reviewData: ReviewSubmissionDto
+	) {
+		const reviewsByReviewerSubmissionId =
+			await this.prisma.reviewPractise.findMany({
+				where: {
+					reviewerSubmissionId: reviewData.reviewerSubmissionId,
+					isCompleted: false
+				}
+			})
+		const review = reviewsByReviewerSubmissionId.find(
+			review => review.practiceSubmissionId === submissionId
+		)
+		if (!review) {
+			throw new NotFoundException('Review not found')
+		}
+		if (review.isCompleted) {
+			throw new ConflictException('Review already completed')
+		}
+
+		await this.prisma.reviewPractiseScoreCriteria.createMany({
+			data: reviewData.scores.map(score => {
+				return {
+					reviewPractiseId: review.id,
+					reviewCriteriaId: score.criteriaId,
+					score: score.score
+				}
+			})
+		})
+		const scores = reviewData.scores
+		const total = scores.reduce((acc, score) => acc + score.score, 0)
+		const average = scores.length > 0 ? total / scores.length : 0
+
+		await this.prisma.reviewPractise.update({
+			where: { id: review.id },
+			data: {
+				comment: reviewData.comment,
+				score: average,
+				isCompleted: true
+			}
+		})
+
+		const submission = await this.prisma.practiceSubmission.findUnique({
+			where: { id: submissionId }
+		})
+
+		const reviewsSubmission = await this.prisma.reviewPractise.findMany({
+			where: {
+				practiceSubmissionId: submissionId,
+				isCompleted: true
+			}
+		})
+
+		if (reviewsSubmission && submission?.score) {
+			const sumScores = reviewsSubmission.reduce(
+				(sum, review) => sum + review.score,
+				0
+			)
+			const averageSubmissionScore = sumScores / reviewsSubmission.length
+
+			await this.prisma.practiceSubmission.update({
+				where: { id: submissionId },
+				data: { score: averageSubmissionScore }
+			})
+		}
+		if (!submission?.score) {
+			await this.prisma.practiceSubmission.update({
+				where: { id: submissionId },
+				data: { score: average }
+			})
+		}
+		const targetReviewsPractise = await this.prisma.reviewPractise.findMany({
+			where: {
+				reviewerSubmissionId: reviewData.reviewerSubmissionId
+			}
+		})
+
+		// is inReviewed practises exist
+		const isAllReviewed = targetReviewsPractise.every(
+			review => review.isCompleted === true
+		)
+		const userReviewer = await this.prisma.user.findUnique({
+			where: { id: submission?.userId }
+		})
+
+		if (!userReviewer) {
+			throw new NotFoundException('User not found')
+		}
+		const coursePart = await this.prisma.coursePart.findUnique({
+			where: { id: submission?.partId }
+		})
+		if (submission?.partId && coursePart?.courseId) {
+			this.emailService.sendNotificationCourseTaskCheck(
+				userReviewer.email,
+				coursePart?.courseId,
+				submission?.partId
+			)
+		}
+		if (isAllReviewed) {
+			await this.prisma.practiceSubmission.update({
+				where: { id: reviewData.reviewerSubmissionId },
+				data: { canReviewed: true }
+			})
+			return isAllReviewed
+
+			// if (!submission) {
+			// 	throw new NotFoundException('Submission not found')
+			// }
+			// const review = await this.prisma.reviewPractise.create({
+			// 	data: {
+			// 		comment: reviewData.comment,
+			// 		scores: reviewData.scores,
+			// 		practiceSubmissionId: submissionId,
+			// 		reviewerSubmissionId: submission.reviewerSubmissionId
+			// 	}
+			// })
+			// await this.prisma.practiceSubmission.update({
+			// 	where: { id: submissionId },
+			// 	data: { isReviewed: true, canReviewed: false }
+			// })
+		}
+	}
+	async reviewSubmissionWithoutReviwerSubmissionId(
+		submissionId: string,
+		reviewData: ReviewSubmissionIndependentDto
+	) {
+		const currentReview = await this.prisma.reviewPractise.create({
+			data: {
+				reviewerId: reviewData.reviewerId,
+				practiceSubmissionId: submissionId,
+				score: 0,
+				isCompleted: false
+			}
+		})
+		// const reviewsByReviewerSubmissionId =
+		// 	await this.prisma.reviewPractise.findMany({
+		// 		where: {
+		// 			reviewerSubmissionId: reviewData.reviewerSubmissionId,
+		// 			isCompleted: false
+		// 		}
+		// 	})
+		// const review = reviewsByReviewerSubmissionId.find(
+		// 	review => review.practiceSubmissionId === submissionId
+		// )
+		if (!currentReview) {
+			throw new NotFoundException('Review not found')
+		}
+		if (currentReview.isCompleted) {
+			throw new ConflictException('Review already completed')
+		}
+
+		await this.prisma.reviewPractiseScoreCriteria.createMany({
+			data: reviewData.scores.map(score => {
+				return {
+					reviewPractiseId: currentReview.id,
+					reviewCriteriaId: score.criteriaId,
+					score: score.score
+				}
+			})
+		})
+		const scores = reviewData.scores
+		const total = scores.reduce((acc, score) => acc + score.score, 0)
+		const average = scores.length > 0 ? total / scores.length : 0
+
+		await this.prisma.reviewPractise.update({
+			where: { id: currentReview.id },
+			data: {
+				comment: reviewData.comment,
+				score: average,
+				isCompleted: true
+			}
+		})
+
+		const submission = await this.prisma.practiceSubmission.findUnique({
+			where: { id: submissionId }
+		})
+
+		const reviewsSubmission = await this.prisma.reviewPractise.findMany({
+			where: {
+				practiceSubmissionId: submissionId,
+				isCompleted: true
+			}
+		})
+
+		if (reviewsSubmission && submission?.score) {
+			const sumScores = reviewsSubmission.reduce(
+				(sum, review) => sum + review.score,
+				0
+			)
+			const averageSubmissionScore = sumScores / reviewsSubmission.length
+
+			await this.prisma.practiceSubmission.update({
+				where: { id: submissionId },
+				data: { score: averageSubmissionScore }
+			})
+		}
+		if (!submission?.score) {
+			await this.prisma.practiceSubmission.update({
+				where: { id: submissionId },
+				data: { score: average }
+			})
+		}
+
+		await this.prisma.user.update({
+			where: { id: reviewData.reviewerId },
+			data: { reviewsOverCount: { increment: 1 } }
+		})
+		return currentReview
+
+		// if (!submission) {
+		// 	throw new NotFoundException('Submission not found')
+		// }
+		// const review = await this.prisma.reviewPractise.create({
+		// 	data: {
+		// 		comment: reviewData.comment,
+		// 		scores: reviewData.scores,
+		// 		practiceSubmissionId: submissionId,
+		// 		reviewerSubmissionId: submission.reviewerSubmissionId
+		// 	}
+		// })
+		// await this.prisma.practiceSubmission.update({
+		// 	where: { id: submissionId },
+		// 	data: { isReviewed: true, canReviewed: false }
+		// })
+	}
+	async getReviewCriteriasByPractiseSubmissionId(practiseSubmissionId: string) {
+		const practiseSubmission = await this.prisma.practiceSubmission.findUnique({
+			where: { id: practiseSubmissionId }
+		})
+		if (!practiseSubmission) {
+			throw new NotFoundException('Practise submission not found')
+		}
+		const coursePart = await this.prisma.coursePart.findUnique({
+			where: { id: practiseSubmission.partId }
+		})
+
+		if (!coursePart) {
+			throw new NotFoundException('Part not found')
+		}
+		if (!coursePart.coursePracticeTaskId) {
+			throw new ConflictException('Part does not have a practice task')
+		}
+
+		const criterias = await this.prisma.reviewPractiseCriteria.findMany({
+			where: { coursePractiseId: coursePart.coursePracticeTaskId }
+		})
+		if (!criterias) {
+			throw new NotFoundException('No review criterias found')
+		}
+		console.log('criterias', criterias)
+		return criterias
+	}
+	async getComplaintReview(reviewId: string, reviewedUserId: string) {
+		const complaintReview = await this.prisma.reviewComplaint.findFirst({
+			where: {
+				reviewPractiseId: reviewId,
+				reviewedUserId: reviewedUserId
+			}
+		})
+		if (!complaintReview) {
+			return null
+		}
+		console.log('complaintReview', complaintReview)
+		return complaintReview
+	}
+	async checkReview(reviewerId: string, submissionId: string) {
+		const review = await this.prisma.reviewPractise.findFirst({
+			where: {
+				reviewerId: reviewerId,
+				practiceSubmissionId: submissionId
+			}
+		})
+		if (!review) {
+			return false
+		}
+		return true
 	}
 }

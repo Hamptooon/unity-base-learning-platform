@@ -1,14 +1,31 @@
-import { Controller, Post, Body, Get, Param, Delete, Put } from '@nestjs/common'
+import {
+	Controller,
+	Post,
+	Body,
+	Get,
+	Param,
+	Delete,
+	Put,
+	Query
+} from '@nestjs/common'
 import { CourseService } from './course.service'
 import { CreateCourseDto } from './dto/create-course.dto'
 import { UpdateCourseDto } from './dto/update-course.dto'
 import { CreateCoursePartDto } from './dto/create-course-part.dto'
 import { CreateReviewCriteriaDto } from './dto/create-review-criteria.dto'
+import { AuthGuard } from '@nestjs/passport'
+import { UseGuards } from '@nestjs/common/decorators'
+import { RolesGuard } from '../auth/guards/roles.guard'
+import { Roles } from '../auth/decorators/roles.decorator'
+import { Role } from '@prisma/client'
 @Controller('courses')
 export class CourseController {
 	constructor(private readonly courseService: CourseService) {}
 
 	@Post()
+	@UseGuards(AuthGuard('jwt'))
+	@UseGuards(AuthGuard('jwt'), RolesGuard)
+	@Roles(Role.ADMIN)
 	async createCourse(@Body() createCourseDto: CreateCourseDto) {
 		const course = await this.courseService.createCourse(createCourseDto)
 		return course
@@ -19,14 +36,29 @@ export class CourseController {
 		@Param('id') id: string,
 		@Body() updateCourseDto: UpdateCourseDto
 	) {
-		console.log('updateCourseDto', updateCourseDto)
 		const course = await this.courseService.updateCourse(id, updateCourseDto)
 		return course
 	}
 	@Get()
-	async getCourses() {
-		const courses = await this.courseService.getCourses()
-		return courses
+	async getCourses(
+		@Query()
+		filters: {
+			page?: number
+			limit?: number
+			status?: 'published' | 'draft'
+			difficulty?: string
+			durationMin?: number
+			durationMax?: number
+			search?: string
+			tags?: string // <--- добавили
+			sortOrder?: 'asc' | 'desc'
+		}
+	) {
+		return this.courseService.getCourses({
+			page: Number(filters.page) || 1,
+			limit: Number(filters.limit) || 10,
+			...filters
+		})
 	}
 
 	@Get(':id')
@@ -52,7 +84,6 @@ export class CourseController {
 		@Param('courseId') courseId: string,
 		@Param('partId') partId: string
 	) {
-		console.log('courseId', courseId)
 		return this.courseService.deleteCoursePart(courseId, partId)
 	}
 
@@ -128,5 +159,15 @@ export class CourseController {
 			practiseId,
 			criteriaId
 		)
+	}
+
+	@Get(':courseId/publish')
+	async publishCourse(@Param('courseId') courseId: string) {
+		return this.courseService.publishCourse(courseId)
+	}
+
+	@Get(':courseId/hide')
+	async hideCourse(@Param('courseId') courseId: string) {
+		return this.courseService.hideCourse(courseId)
 	}
 }

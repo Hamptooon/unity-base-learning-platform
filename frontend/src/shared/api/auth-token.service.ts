@@ -16,7 +16,7 @@ export const authTokenService = {
     Cookies.set(EnumTokens.ACCESS_TOKEN, accessToken, {
       domain: 'localhost',
       sameSite: 'lax',
-      expires: 1
+      expires: 20
     })
   },
 

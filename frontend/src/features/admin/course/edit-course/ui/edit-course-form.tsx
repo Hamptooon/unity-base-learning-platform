@@ -55,7 +55,9 @@ import { CoursePartType } from '@/entities/course/model/types'
 import { SortableItem } from '@/features/admin/course/edit-course/ui/sortable-course-part'
 import { InputImageUpload } from '@/shared/ui/input-image-upload'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { Tag } from '@/entities/tag/model/types'
 
+import { TagInput } from '@/shared/ui/tag-input'
 export const EditCourseForm: React.FC = memo(() => {
   const [partsOpenedStatus, setPartsOpenedStatus] = useState<
     Record<string, boolean>
@@ -103,7 +105,8 @@ export const EditCourseForm: React.FC = memo(() => {
       duration: 1,
       difficulty: Difficulty.NEWBIE,
       learningObjectives: [],
-      parts: []
+      parts: [],
+      tags: []
     }
   })
 
@@ -210,7 +213,6 @@ export const EditCourseForm: React.FC = memo(() => {
         setPreviewUrl(course.previewImageUrl)
         form.reset(formattedData)
       } catch (error) {
-        console.error('Ошибка при загрузке курса:', error)
         toast.error(
           `Ошибка при загрузке курса: ${error || 'Неизвестная ошибка'}`
         )
@@ -259,7 +261,6 @@ export const EditCourseForm: React.FC = memo(() => {
             previewImageUrlsParts[part.id] = previewImagePartUrl
           }
           if (part.type === CoursePartType.PRACTICAL) {
-            console.log('part.practice', part.practice)
             const assetsFileUrl = part.practice.assetsFile
               ? await fileService.uploadUnityPackage(
                   part.practice.assetsFile[0]
@@ -291,7 +292,8 @@ export const EditCourseForm: React.FC = memo(() => {
                     assetsFileUrl: assetsFileUrlsParts[part.id]
                   }
                 : undefined
-          })) ?? []
+          })) ?? [],
+        tags: data.tags
       }
 
       const newCourse = await courseService.updateCourseInfo(
@@ -299,13 +301,7 @@ export const EditCourseForm: React.FC = memo(() => {
         formattedData
       )
       toast.success('Данные сохранены')
-
-      ////////
-      form.reset(data) // Важно: сбрасываем состояние формы
-      setNavigationConfirmed(false)
-      setTargetUrl(null)
     } catch (error: any) {
-      console.error('Ошибка при создании курса:', error)
       toast.error(
         `Ошибка при сохранении данных: ${
           error.response?.data?.message || 'Неизвестная ошибка'
@@ -320,7 +316,6 @@ export const EditCourseForm: React.FC = memo(() => {
     }))
   }
   const addCoursePart = async (newPart: CoursePart) => {
-    console.log('newPart', newPart)
     form.setValue('parts', [
       ...(form.getValues('parts') ?? []),
       newPart.type === CoursePartType.THEORETICAL
@@ -351,7 +346,6 @@ export const EditCourseForm: React.FC = memo(() => {
 
       toast.success('Часть курса удалена')
     } catch (error) {
-      console.error('Ошибка при удалении:', error)
       toast.error('Не удалось удалить часть курса')
     }
   }
@@ -360,8 +354,16 @@ export const EditCourseForm: React.FC = memo(() => {
     return [...parts].sort((a, b) => a.sortOrder - b.sortOrder)
   }, [form.watch('parts')]) // Зависимость от значений parts
 
+  const addTagToForm = (tag: Tag) => {
+    form.setValue('tags', [...form.getValues('tags'), tag])
+  }
+  const deleteTagFromForm = (tag: Tag) => {
+    const updatedTags = form.getValues('tags').filter(t => t.id !== tag.id)
+    form.setValue('tags', updatedTags)
+  }
+
   return (
-    <div className="w-full p-5 pb-20">
+    <div className="max-w-7xl mx-auto p-5 pb-20">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="fixed bottom-4 right-10 z-50 bg-background/90 backdrop-blur-sm p-2 rounded-lg">
@@ -466,7 +468,23 @@ export const EditCourseForm: React.FC = memo(() => {
               </div>
             )}
           </div>
-
+          <FormField
+            control={form.control}
+            name="tags"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Теги</FormLabel>
+                <FormControl>
+                  <TagInput
+                    value={field.value}
+                    onChange={(tag: Tag) => addTagToForm(tag)}
+                    onDeleteTag={(tag: Tag) => deleteTagFromForm(tag)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <div className="flex gap-10">
             <Card className="w-1/2 self-start">
               <CardContent className="p-6">

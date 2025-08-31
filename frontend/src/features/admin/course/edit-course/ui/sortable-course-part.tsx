@@ -60,7 +60,6 @@ export const SortableItem: React.FC<SortableItemProps> = memo(
     useEffect(() => {
       if (isOpen && part.practice) {
         loadCriteria()
-        console.log('part!!!!', part)
       }
     }, [isOpen])
 

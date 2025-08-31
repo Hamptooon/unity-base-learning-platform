@@ -84,7 +84,15 @@ export const courseFormSchema = z.object({
     )
     .min(1, 'Добавьте хотя бы одну цель обучени��')
     .optional(),
-  parts: z.array(coursePartSchema).optional()
+  parts: z.array(coursePartSchema).optional(),
+  tags: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string()
+      })
+    )
+    .optional()
 })
 
 export type CourseFormValues = z.infer<typeof courseFormSchema>

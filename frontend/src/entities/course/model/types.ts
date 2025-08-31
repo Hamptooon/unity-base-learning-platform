@@ -1,3 +1,4 @@
+import { Tag } from '@/entities/tag/model/types'
 export interface Course {
   id: string
   title: string
@@ -8,6 +9,8 @@ export interface Course {
   difficulty: Difficulty
   learningObjectives?: LearningObjective[]
   parts?: CoursePart[]
+  tags?: Tag[]
+  isPublished: boolean
 }
 
 export type CourseUpdate = Partial<Course>
@@ -79,4 +82,48 @@ export interface CreateCoursePart {
   title: string
   description: string
   sortOrder: number
+}
+
+export interface PractiseInfo {
+  id: string
+  title: string
+  description: string
+  previewImageUrl?: string
+  content: string
+  assetsFileUrl?: string
+  reviewCriterias: ReviewCriteria[]
+}
+
+// id: review.id,
+// 			reviewer: {
+// 				userId: review.reviewer.id,
+// 				name: review.reviewer.name,
+// 				avatarUrl: review.reviewer.avatarUrl
+// 			},
+// 			score: review.score,
+// 			comment: review.comment,
+// 			reviewPractiseScoreCriterias: review.reviewPractiseScoreCriterias.map(
+// 				criteria => ({
+// 					score: criteria.score,
+// 					reviewCriteriaTitle: criteria.reviewCriteria.title,
+// 					reviewCriteriaDescription: criteria.reviewCriteria.description
+// 				})
+// 			),
+// 			createdAt: review.createdAt
+export interface ReviewsInfo {
+  id: string
+  reviewer: {
+    userId: string
+    name: string
+    avatarUrl: string
+  }
+  score: number
+  comment: string
+  reviewPractiseScoreCriterias: {
+    id: string
+    score: number
+    reviewCriteriaTitle: string
+    reviewCriteriaDescription: string
+  }[]
+  createdAt: string
 }

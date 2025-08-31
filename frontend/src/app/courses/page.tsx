@@ -1,5 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useDebouncedCallback } from 'use-debounce'
+import { useCourses } from '@/entities/course/model/use-courses'
 import { Course, Difficulty } from '@/entities/course/model/types'
 import { courseService } from '@/entities/course/api/course.service'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -10,42 +12,86 @@ import {
   CardDescription,
   CardContent
 } from '@/shared/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/shared/ui/select'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious
+} from '@/shared/ui/pagination'
+import { SearchBar } from '@/shared/ui/search-bar'
+import { Slider } from '@/shared/ui/slider'
+import { useTags } from '@/entities/tag/model/use-tags'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
 import Link from 'next/link'
+import { getDifficultyColor } from '@/shared/utils/functions'
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [searchValue, setSearchValue] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [statusFilter, setStatusFilter] = useState<'published'>('published')
+  const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'all'>(
+    'all'
+  )
+  const [durationRange, setDurationRange] = useState<[number, number]>([0, 100])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const { tags: allTags } = useTags('course')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  // Мемоизируем параметры запроса
+  const requestParams = useMemo(
+    () => ({
+      page,
+      limit,
+      status: statusFilter == 'published' ? statusFilter : undefined,
+      difficulty: difficultyFilter !== 'all' ? difficultyFilter : undefined,
+      durationMin: durationRange[0],
+      durationMax: durationRange[1],
+      search: searchValue,
+      tags: selectedTags.join(',') || undefined, // <--- добавили
+      sortOrder: sortOrder
+    }),
+    [
+      page,
+      limit,
+      statusFilter,
+      difficultyFilter,
+      durationRange,
+      searchValue,
+      selectedTags,
+      sortOrder
+    ]
+  )
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const data = await courseService.getCourses()
-        console.log(data)
-        setCourses(data)
-      } catch (error) {
-        console.error('Error fetching courses:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const { courses, total, loading, error } = useCourses(requestParams)
 
-    fetchCourses()
-  }, [])
+  // Оптимизированный обработчик поиска
+  const handleSearch = useDebouncedCallback((value: string) => {
+    setPage(1)
+    setSearchValue(value)
+  }, 500)
 
-  const getDifficultyVariant = (difficulty: Difficulty) => {
-    switch (difficulty) {
-      case Difficulty.NEWBIE:
-        return 'secondary'
-      case Difficulty.BEGINNER:
-        return 'default'
-      case Difficulty.INTERMEDIATE:
-        return 'outline'
-      case Difficulty.ADVANCED:
-        return 'destructive'
-      default:
-        return 'secondary'
-    }
+  const handleResetFilters = () => {
+    setPage(1)
+    setStatusFilter('published')
+    setDifficultyFilter('all')
+    setDurationRange([0, 100])
+    setSearchValue('')
+    setSelectedTags([])
+    setSortOrder('desc')
+  }
+
+  const totalPages = Math.ceil(total / limit)
+
+  if (error) {
+    return <div className="text-red-500 p-4">{error}</div>
   }
 
   return (
@@ -78,7 +124,118 @@ export default function CoursesPage() {
 
       {/* Courses Grid */}
       <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24">
-        {isLoading ? (
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
+          <div className="flex-1">
+            <SearchBar
+              value={searchValue}
+              onChange={e => setSearchValue(e.target.value)}
+              onSearch={handleSearch}
+              placeholder="Поиск курсов..."
+            />
+          </div>
+        </div>
+        <div className="mb-6 flex flex-wrap gap-2">
+          {allTags.map(tag => (
+            <Badge
+              key={tag.id}
+              variant={selectedTags.includes(tag.name) ? 'default' : 'outline'}
+              className="cursor-pointer"
+              onClick={() =>
+                setSelectedTags(prev =>
+                  prev.includes(tag.name)
+                    ? prev.filter(t => t !== tag.name)
+                    : [...prev, tag.name]
+                )
+              }
+            >
+              {tag.name}
+            </Badge>
+          ))}
+        </div>
+        {/* Фильтры */}
+        <div className="flex flex-wrap gap-4 mb-6 items-center">
+          {/* <Select
+            value={statusFilter}
+            onValueChange={(value: 'published') => {
+              setStatusFilter(value)
+              setPage(1)
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Статус" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все статусы</SelectItem>
+              <SelectItem value="published">Опубликованные</SelectItem>
+              <SelectItem value="draft">Черновики</SelectItem>
+            </SelectContent>
+          </Select> */}
+
+          <Select
+            value={sortOrder}
+            onValueChange={(value: 'asc' | 'desc') => {
+              setSortOrder(value)
+              setPage(1)
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Сортировка" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="desc">Сначала новые</SelectItem>
+              <SelectItem value="asc">Сначала старые</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={difficultyFilter}
+            onValueChange={(value: Difficulty | 'all') => {
+              setDifficultyFilter(value)
+              setPage(1)
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Сложность" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Любая сложность</SelectItem>
+              <SelectItem value={Difficulty.NEWBIE}>Новичок</SelectItem>
+              <SelectItem value={Difficulty.BEGINNER}>Начинающий</SelectItem>
+              <SelectItem value={Difficulty.INTERMEDIATE}>Средний</SelectItem>
+              <SelectItem value={Difficulty.ADVANCED}>Продвинутый</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="w-[270px] space-y-1.5 h-10 self-start">
+            <div className="flex justify-between text-sm">
+              <span>
+                Длительность: {durationRange[0]}ч - {durationRange[1]}ч
+              </span>
+            </div>
+            <Slider
+              value={durationRange}
+              onValueChange={value =>
+                setDurationRange(value as [number, number])
+              }
+              min={0}
+              max={100}
+              step={5}
+              minStepsBetweenThumbs={1}
+            />
+          </div>
+
+          <Button className="cursor-pointer" onClick={handleResetFilters}>
+            Сбросить
+          </Button>
+        </div>
+        {courses.length === 0 && (
+          <div className="flex flex-col items-center justify-center text-center h-[60vh] gap-2">
+            <h1 className="text-3xl font-bold">😕 Курсы не найдены</h1>
+            <p className="text-muted-foreground text-lg">
+              Попробуйте изменить фильтры или проверьте доступные категории.
+            </p>
+          </div>
+        )}
+        {loading && courses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((_, index) => (
               <Skeleton key={index} className="h-64 w-full rounded-xl" />
@@ -94,45 +251,96 @@ export default function CoursesPage() {
               return (
                 <Card
                   key={course.id}
-                  className="hover:shadow-lg transition-shadow h-full flex flex-col p-0"
+                  className="flex flex-col h-full hover:shadow-lg transition-shadow duration-200 rounded-xl overflow-hidden"
                 >
-                  <CardHeader className="p-0 relative">
-                    <div className="h-48 w-full overflow-hidden">
+                  <div className="flex flex-col h-full">
+                    {/* Обложка */}
+                    <div className="p-5">
                       <img
                         src={imagePath}
                         alt={course.title}
-                        className="w-full h-full object-cover rounded-t-lg"
+                        className="rounded-lg h-48 w-full object-cover"
                       />
                     </div>
-                    <Badge
-                      variant={getDifficultyVariant(course.difficulty)}
-                      className="absolute top-2 left-2"
-                    >
-                      {course.difficulty}
-                    </Badge>
-                  </CardHeader>
 
-                  <CardContent className="flex-1 pt-6 pb-4">
-                    <CardTitle className="mb-2 line-clamp-2">
-                      {course.title}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-3 mb-4">
-                      {course.description}
-                    </CardDescription>
-                    <div className="flex items-center justify-between mt-auto">
-                      <span className="text-sm text-muted-foreground">
-                        Продолжительность: {course.duration}h
-                      </span>
-                      <Button asChild>
-                        <Link href={`/courses/${course.id}`}>Посмотреть</Link>
-                      </Button>
+                    {/* Контент */}
+                    <div className="flex flex-col flex-1 p-5">
+                      {/* Заголовок и описание */}
+                      <h3 className="text-lg font-semibold mb-1 line-clamp-2">
+                        {course.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+                        {course.description}
+                      </p>
+
+                      {/* Бейджи */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <Badge
+                          className={getDifficultyColor(course.difficulty)}
+                        >
+                          {course.difficulty}
+                        </Badge>
+                        <Badge variant="outline">{course.duration} часов</Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {course.tags?.map(tag => (
+                          <Badge key={tag.id} variant="secondary">
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
+
+                      {/* Дно карточки */}
+                      <div className="mt-auto flex items-center justify-between pt-3 border-t text-sm">
+                        <span className="text-muted-foreground">
+                          ⏱ {course.duration} ч
+                        </span>
+                        <Button asChild size="sm" className="text-sm">
+                          <Link href={`/courses/${course.id}`}>Открыть</Link>
+                        </Button>
+                      </div>
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               )
             })}
           </div>
         )}
+        <div className="mt-6 flex justify-between items-center">
+          <div className="text-sm text-muted-foreground">
+            Показано {courses.length} из {total} курсов
+          </div>
+
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <Button
+                  variant="outline"
+                  disabled={page === 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  Назад
+                </Button>
+              </PaginationItem>
+
+              <PaginationItem>
+                <div className="px-4">
+                  Страница {page} из {totalPages}
+                </div>
+              </PaginationItem>
+
+              <PaginationItem>
+                <Button
+                  variant="outline"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                >
+                  Вперед
+                </Button>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       </div>
     </div>
   )
